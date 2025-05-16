@@ -2,8 +2,6 @@
 
 TypeMapper is a modern web application that automatically converts JavaScript objects to their TypeScript type definitions. Simply paste or type a JavaScript object in the left panel, and see the inferred TypeScript types in the right panel.
 
-![TypeMapper screenshot](https://via.placeholder.com/800x400.png?text=TypeMapper+Screenshot)
-
 ## Features
 
 - ✅ Automatic type inference from JavaScript objects
@@ -35,7 +33,7 @@ TypeMapper is a modern web application that automatically converts JavaScript ob
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/typemapper.git
+git clone https://github.com/willianctti/typeMapper
 cd typemapper
 ```
 
