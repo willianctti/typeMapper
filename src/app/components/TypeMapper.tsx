@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import CodeEditor from './CodeEditor';
 import { inferType, objectToTypeString, safeJSONParse } from '../utils/typeInference';
-import { ArrowRight, Check, Sparkles, Code } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { ArrowRight, Check, Code } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -121,12 +120,10 @@ const useSuccessConfetti = () => {
 };
 
 const TypeMapper: React.FC = () => {
-  const { resolvedTheme } = useTheme();
   const [input, setInput] = useState(defaultInput);
   const [output, setOutput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showParticles, setShowParticles] = useState(false);
   const arrowControls = useAnimation();
   const { active: confettiActive, triggerConfetti } = useSuccessConfetti();
   
@@ -154,7 +151,7 @@ const TypeMapper: React.FC = () => {
           triggerConfetti();
           setIsProcessing(false);
           return;
-        } catch (jsonError) {
+        } catch {
           console.log("Não é JSON válido, tentando safeJSONParse");
         }
         
@@ -219,12 +216,10 @@ const TypeMapper: React.FC = () => {
     }, 500);
     
     return () => clearTimeout(timer);
-  }, []);
+  }, [output, input, processInput]);
 
   useEffect(() => {
     if (isProcessing) {
-      setShowParticles(true);
-      
       arrowControls.start({
         scale: [1, 1.2, 1],
         rotate: [0, 5, 0, -5, 0],
@@ -235,22 +230,9 @@ const TypeMapper: React.FC = () => {
         }
       });
     } else {
-      setTimeout(() => setShowParticles(false), 800);
-      
       arrowControls.stop();
     }
   }, [isProcessing, arrowControls]);
-
-  const particles = useMemo(() => {
-    return Array.from({ length: 8 }).map((_, i) => ({ 
-      id: i,
-      x: 50 + Math.random() * 200 - 100,
-      y: 50 + Math.random() * 100 - 50,
-      size: 2 + Math.random() * 6,
-      color: i % 2 === 0 ? '#4F46E5' : '#EC4899',
-      delay: Math.random() * 0.5
-    }));
-  }, []);
 
   return (
     <div className="w-full max-w-7xl mx-auto px-2">

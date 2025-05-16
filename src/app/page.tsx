@@ -3,10 +3,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import TypeMapper from './components/TypeMapper';
-import ThemeToggle from './components/ThemeToggle';
 import AnimatedBackground from './components/AnimatedBackground';
 import SnakeAnimation from './components/SnakeAnimation';
-import { Sparkles, Code, ChevronRight } from 'lucide-react';
 
 export default function Home() {
   return (

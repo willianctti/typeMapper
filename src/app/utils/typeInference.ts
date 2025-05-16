@@ -1,11 +1,10 @@
-
 interface ObjectTypeResult {
   [key: string]: string | ObjectTypeResult;
 }
 
 type TypeResult = string | ObjectTypeResult;
 
-function isPlainObject(value: any): boolean {
+function isPlainObject(value: unknown): boolean {
   if (value === null || typeof value !== 'object') return false;
   
   const proto = Object.getPrototypeOf(value);
@@ -19,7 +18,7 @@ function isPlainObject(value: any): boolean {
 }
 
 
-function isTupleArray(arr: any[]): boolean {
+function isTupleArray(arr: unknown[]): boolean {
   if (arr.length <= 1) return false;
   if (arr.length > 10) return false;
   
@@ -31,7 +30,7 @@ function isTupleArray(arr: any[]): boolean {
   if (uniqueTypes.size === 1 && types[0] === 'object') {
     const objectSignatures = arr.map(item => {
       if (item === null) return 'null';
-      return Object.keys(item).sort().join('|');
+      return Object.keys(item as Record<string, unknown>).sort().join('|');
     });
     return new Set(objectSignatures).size > 1;
   }
@@ -40,22 +39,22 @@ function isTupleArray(arr: any[]): boolean {
 }
 
 
-function getFunctionType(fn: Function): string {
+function getFunctionType(fn: (...args: unknown[]) => unknown): string {
   try {
     const fnStr = fn.toString();
     const argsMatch = fnStr.match(/\(([^)]*)\)/);
     const params = argsMatch && argsMatch[1] ? argsMatch[1].split(',').map(p => p.trim()) : [];
     
-    const typedParams = params.map((_, i) => `param${i}: any`);
+    const typedParams = params.map((_, i) => `param${i}: unknown`);
     
-    return `(${typedParams.join(', ')}) => any`;
-  } catch (e) {
-    return '(...args: any[]) => any';
+    return `(${typedParams.join(', ')}) => unknown`;
+  } catch {
+    return '(...args: unknown[]) => unknown';
   }
 }
 
 
-export function inferType(value: any, depth: number = 0, maxDepth: number = 10): TypeResult {
+export function inferType(value: unknown, depth: number = 0, maxDepth: number = 10): TypeResult {
   if (depth > maxDepth) {
     return 'any';
   }
@@ -74,7 +73,7 @@ export function inferType(value: any, depth: number = 0, maxDepth: number = 10):
   if (type === 'bigint') return 'bigint';
   
   if (type === 'function') {
-    return getFunctionType(value);
+    return getFunctionType(value as (...args: unknown[]) => unknown);
   }
   
   if (Array.isArray(value)) {
@@ -105,9 +104,9 @@ export function inferType(value: any, depth: number = 0, maxDepth: number = 10):
   if (type === 'object') {
     if (value instanceof Date) return 'Date';
     if (value instanceof RegExp) return 'RegExp';
-    if (value instanceof Map) return 'Map<any, any>';
-    if (value instanceof Set) return 'Set<any>';
-    if (value instanceof Promise) return 'Promise<any>';
+    if (value instanceof Map) return 'Map<unknown, unknown>';
+    if (value instanceof Set) return 'Set<unknown>';
+    if (value instanceof Promise) return 'Promise<unknown>';
     if (value instanceof Error) return 'Error';
     if (value instanceof Int8Array ||
         value instanceof Uint8Array ||
@@ -126,10 +125,10 @@ export function inferType(value: any, depth: number = 0, maxDepth: number = 10):
     if (isPlainObject(value)) {
       const objType: Record<string, TypeResult> = {};
       
-      const allKeys = Object.keys(value);
+      const allKeys = Object.keys(value as Record<string, unknown>);
       
       for (const key of allKeys) {
-        const propValue = value[key];
+        const propValue = (value as Record<string, unknown>)[key];
         const propType = inferType(propValue, depth + 1, maxDepth);
         
         objType[key] = propType;
@@ -139,11 +138,12 @@ export function inferType(value: any, depth: number = 0, maxDepth: number = 10):
     }
     
     try {
-      const constructorName = value.constructor.name;
+      const constructorName = (value as { constructor: { name: string } }).constructor.name;
       if (constructorName && constructorName !== 'Object') {
         return constructorName;
       }
-    } catch (e) {
+    } catch {
+      // Ignorar erro
     }
     
     return 'object';
@@ -186,7 +186,7 @@ export function objectToTypeString(obj: TypeResult, indentLevel: number = 0): st
 export function extractObjectLiteral(input: string): string | null {
   if (!input || typeof input !== 'string') return null;
   
-  let cleanedInput = input.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const cleanedInput = input.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
   const declareRegex = /(?:const|let|var)\s+\w+\s*=\s*({[\s\S]*?});?(?:$|\/|\/\/|\/\*)/;
   let match = declareRegex.exec(cleanedInput);
@@ -203,7 +203,8 @@ export function extractObjectLiteral(input: string): string | null {
   try {
     JSON.parse(cleanedInput);
     return cleanedInput.trim();
-  } catch (e) {
+  } catch {
+    // Ignorar erro
   }
 
   const returnRegex = /return\s+({[\s\S]*?});/;
@@ -219,12 +220,13 @@ export function extractObjectLiteral(input: string): string | null {
       const stringContent = match[1].replace(/\\"/g, '"');
       JSON.parse(stringContent);
       return stringContent.trim();
-    } catch (e) {
+    } catch {
+      // Ignorar erro
     }
   }
 
   const objectLiteralRegex = /([\[\{][\s\S]*?[\]\}])/g;
-  let objects: string[] = [];
+  const objects: string[] = [];
   
   while ((match = objectLiteralRegex.exec(cleanedInput)) !== null) {
     if (match[1]) {
@@ -269,7 +271,7 @@ function prepareInput(input: string): string {
 }
 
 
-export function safeJSONParse(input: string): { result: any, error: string | null } {
+export function safeJSONParse(input: string): { result: Record<string, unknown> | null, error: string | null } {
   if (!input || typeof input !== 'string') {
     return { result: null, error: 'Input inválido' };
   }
@@ -321,8 +323,8 @@ export function safeJSONParse(input: string): { result: any, error: string | nul
         return { result: null, error: evalResult.__error__ };
       }
       
-      return { result: evalResult, error: null };
-    } catch (e) {
+      return { result: evalResult as Record<string, unknown>, error: null };
+    } catch {
       return result;
     }
   }
@@ -331,7 +333,7 @@ export function safeJSONParse(input: string): { result: any, error: string | nul
 }
 
 
-function processSanitizedInput(sanitized: string): { result: any, error: string | null } {
+function processSanitizedInput(sanitized: string): { result: Record<string, unknown> | null, error: string | null } {
   try {
     let jsonCompatible = sanitized
       .replace(/`([^`]*)`/g, '"$1"')
@@ -349,8 +351,8 @@ function processSanitizedInput(sanitized: string): { result: any, error: string 
     const replacements: Array<{ pattern: string | RegExp, replacement: string, values: string[] }> = [];
 
     const dateValues: string[] = [];
-    let datePattern = /new Date\((.*?)\)/g;
-    let withDatesReplaced = jsonCompatible.replace(datePattern, (match, args) => {
+    const datePattern = /new Date\((.*?)\)/g;
+    const withDatesReplaced = jsonCompatible.replace(datePattern, (match, args) => {
       dateValues.push(args);
       return `"__DATE_PLACEHOLDER_${dateValues.length - 1}__"`;
     });
@@ -364,7 +366,7 @@ function processSanitizedInput(sanitized: string): { result: any, error: string 
     const regexLiteralValues: string[] = [];
     const regexLiteralPattern = /\/([^/\\]*(?:\\.[^/\\]*)*)\/([gimysd]*)/g;
     
-    let withRegexLiteralReplaced = withDatesReplaced.replace(regexLiteralPattern, (match, pattern, flags) => {
+    const withRegexLiteralReplaced = withDatesReplaced.replace(regexLiteralPattern, (match, pattern, flags) => {
       regexLiteralValues.push(JSON.stringify({ pattern, flags }));
       return `"__REGEX_LITERAL_PLACEHOLDER_${regexLiteralValues.length - 1}__"`;
     });
@@ -378,7 +380,7 @@ function processSanitizedInput(sanitized: string): { result: any, error: string 
     const regexConstructorValues: string[] = [];
     const regexConstructorPattern = /new RegExp\((.*?)(?:,\s*(.*?))?\)/g;
     
-    let withRegexConstructorReplaced = withRegexLiteralReplaced.replace(regexConstructorPattern, (match, pattern, flags) => {
+    const withRegexConstructorReplaced = withRegexLiteralReplaced.replace(regexConstructorPattern, (match, pattern, flags) => {
       regexConstructorValues.push(JSON.stringify({ pattern, flags: flags || '' }));
       return `"__REGEX_CONSTRUCTOR_PLACEHOLDER_${regexConstructorValues.length - 1}__"`;
     });
@@ -392,7 +394,7 @@ function processSanitizedInput(sanitized: string): { result: any, error: string 
     const functionValues: string[] = [];
     const functionPattern = /(?:"[^"]*":\s*)?(function\s*\([^)]*\)\s*{[^}]*}|\([^)]*\)\s*=>\s*{[^}]*}|\([^)]*\)\s*=>[^,}]*)/g;
     
-    let withFunctionsReplaced = withRegexConstructorReplaced.replace(functionPattern, (match, funcDef) => {
+    let withFunctionsReplaced = withRegexConstructorReplaced.replace(functionPattern, (match) => {
       if (match.includes(':')) {
         const parts = match.split(':');
         functionValues.push(parts.slice(1).join(':').trim());
@@ -410,6 +412,7 @@ function processSanitizedInput(sanitized: string): { result: any, error: string 
     });
 
     try {
+      // Precisamos usar let aqui porque estamos reatribuindo a variável
       withFunctionsReplaced = withFunctionsReplaced
         .replace(/,\s*}/g, '}')
         .replace(/,\s*\]/g, ']');
@@ -420,7 +423,7 @@ function processSanitizedInput(sanitized: string): { result: any, error: string 
       
       const parsed = JSON.parse(withFunctionsReplaced);
       
-      function restoreValues(obj: any): any {
+      function restoreValues(obj: unknown): Record<string, unknown> | unknown[] | unknown {
         if (!obj) return obj;
         
         if (typeof obj === 'string') {
@@ -449,7 +452,7 @@ function processSanitizedInput(sanitized: string): { result: any, error: string 
                     dateArgs.length > 6 ? Number(dateArgs[6]) : 0
                   );
                 }
-              } catch (e) {
+              } catch {
                 return new Date();
               }
             }
@@ -463,7 +466,7 @@ function processSanitizedInput(sanitized: string): { result: any, error: string 
                 const { pattern, flags } = JSON.parse(regexLiteralValues[index]);
                 const escapedPattern = pattern.replace(/\\/g, '\\\\');
                 return new RegExp(escapedPattern, flags);
-              } catch (e) {
+              } catch {
                 return /./;
               }
             }
@@ -483,7 +486,7 @@ function processSanitizedInput(sanitized: string): { result: any, error: string 
                 }
                 
                 return new RegExp(processedPattern, flags || '');
-              } catch (e) {
+              } catch {
                 return /./;
               }
             }
@@ -502,9 +505,11 @@ function processSanitizedInput(sanitized: string): { result: any, error: string 
           if (Array.isArray(obj)) {
             return obj.map(item => restoreValues(item));
           } else {
-            const result: Record<string, any> = {};
+            const result: Record<string, unknown> = {};
             for (const key in obj) {
-              result[key] = restoreValues(obj[key]);
+              if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                result[key] = restoreValues((obj as Record<string, unknown>)[key]);
+              }
             }
             return result;
           }
@@ -514,7 +519,7 @@ function processSanitizedInput(sanitized: string): { result: any, error: string 
       }
       
       const restoredObj = restoreValues(parsed);
-      return { result: restoredObj, error: null };
+      return { result: restoredObj as Record<string, unknown>, error: null };
     } catch (e) {
       console.error("Erro ao analisar JSON:", e, "\nTexto:", withFunctionsReplaced);
       return { result: null, error: (e as Error).message };
